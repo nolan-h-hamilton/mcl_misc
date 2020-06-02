@@ -1,2 +1,2 @@
 # mcl_misc
-Miscellaneous scripts and modules for interacting with MCL input and output files
+Miscellaneous scripts and modules for phylogenetics and MCL input/output files
