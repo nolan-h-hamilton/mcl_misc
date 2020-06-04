@@ -1,3 +1,25 @@
+"""Compute some basic features of MCL results
+
+    Basic Usage Example:
+        # produce a graphic with a log-scaled histogram of cluster sizes and various other features
+        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --plot
+
+        # produce a graphic with a log-scaled histogram of cluster sizes and various other features
+        # normalize flag causes species frequency dict (see cluster_features()) to be normed by the
+        # total number of clusters: "what fraction of clusters contained AAMBTRI?"
+        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --plot --normalize
+       
+        # print some basic cluster features to terminal
+        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --text
+"""
+
+import sys
+import math
+import argparse
+import numpy as np
+import matplotlib.pyplot as plt
+
+
 def cluster_features(mcl_output_file, species, normalize=False):
 
     """find pertinent features of clusters returned from mcl in one pass
@@ -22,14 +44,15 @@ def cluster_features(mcl_output_file, species, normalize=False):
         This function should provide all data needed from the mcl file
             in a single traversal. If more features are of interest, this
             function should be modified to compute them without additional
-            traversals (i.e., computed in the main loop)
+            traversals (i.e., computed in the main loop) if possible.
     """
     clusters = []
     species_frequency = dict.fromkeys(species, 0)
     cluster_sizes = []
     singletons = []
     num_clusters = 0
-    size_distr_dict = {'mean_clstr_size': 0.0, 'min_clstr_size': 0.0, 'max_clstr_size': 0.0}
+    size_distr_dict = {'mean_clstr_size': 0.0, 'min_clstr_size': 1000.0,
+                       'max_clstr_size': 0.0}
     
     with open (mcl_output_file, 'r') as f:
         for line in f:
@@ -42,16 +65,17 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 try:
                     cluster = cluster.split('\t')[0:-1]
                 except AttributeError:
-                    #blank line?
                     continue
-                clusters.append(cluster)
+
+                size = len(cluster)
+                if size == 0:
+                    continue
 
                 # this counter may not be needed, but may avoid potentially
                 # expensive calls to len(clusters) in future. Keep for now.
                 num_clusters += 1
-
-                # compute cluster size features
-                size = len(cluster)
+                clusters.append(cluster)
+                
                 size_distr_dict['mean_clstr_size'] += size
                 if size_distr_dict['min_clstr_size'] > size:
                     size_distr_dict['min_clstr_size'] = size
@@ -70,6 +94,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
                     if spec in present_specs:
                         species_frequency[spec] += 1
 
+    size_distr_dict['mean_clstr_size'] /= num_clusters
     # True,  divide frequency by num_clusters so that the value in dict
     # represents what fraction of clusters the species was present in
     if normalize:
@@ -82,3 +107,50 @@ def cluster_features(mcl_output_file, species, normalize=False):
             'singletons': singletons,
             'num_clusters': num_clusters,
             'clusters': clusters}
+
+
+def main():
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mcl_file', help='file containing MCL results')
+    parser.add_argument('--species', help='comma-separated species names, ex: "ANUPADV, AAMBTRI"',)
+    parser.add_argument('--plot', help='display histogram of clusters features',
+                        action='store_true')
+    parser.add_argument('--text', help='print cluster features to terminal',
+                        action='store_true')
+    parser.add_argument('--normalize', help='normalize species frequencies',
+                        action='store_true')
+    args = parser.parse_args()
+    
+    features_dict = cluster_features(args.mcl_file, args.species.split(', '),
+                                      normalize=args.normalize)
+
+    clstr_size_arr = np.array(features_dict['cluster_sizes'])
+    mean = round(features_dict['size_distr_dict']['mean_clstr_size'],2)
+    max_ = round(features_dict['size_distr_dict']['max_clstr_size'],2)
+    min_ = round(features_dict['size_distr_dict']['min_clstr_size'],2)
+    singleton_prop = round(len(features_dict['singletons'])
+                           / float(features_dict['num_clusters']),2)
+    std_dev = round(np.std(clstr_size_arr),2)
+    med = round(np.median(clstr_size_arr),2)
+
+    if args.plot:
+        plt.yscale('log')
+        plt.ylabel('min: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\nsingletons: {}\nclusters: {}'
+                   .format(min_,med,mean,std_dev,max_,singleton_prop, features_dict['num_clusters']),
+                   rotation='horizontal',
+                   horizontalalignment='right')
+        plt.xlabel(features_dict['species_frequency'])
+        plt.title('MCL Clusters Features')
+        plt.hist(clstr_size_arr)
+        plt.show()
+
+    if args.text:
+        print('min: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\nsingletons: {}\nclusters: {}'
+                   .format(min_,med,mean,std_dev,max_,singleton_prop, features_dict['num_clusters']))
+        print(features_dict['species_frequency'])
+    
+if __name__ == "__main__":
+    main()
+    
+    
