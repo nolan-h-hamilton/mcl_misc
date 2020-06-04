@@ -46,6 +46,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
             function should be modified to compute them without additional
             traversals (i.e., computed in the main loop) if possible.
     """
+    
     clusters = []
     species_frequency = dict.fromkeys(species, 0)
     cluster_sizes = []
@@ -110,7 +111,6 @@ def cluster_features(mcl_output_file, species, normalize=False):
 
 
 def main():
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('mcl_file', help='file containing MCL results')
     parser.add_argument('--species', help='comma-separated species names, ex: "ANUPADV, AAMBTRI"',)
@@ -131,6 +131,8 @@ def main():
     min_ = round(features_dict['size_distr_dict']['min_clstr_size'],2)
     singleton_prop = round(len(features_dict['singletons'])
                            / float(features_dict['num_clusters']),2)
+    # one-pass std devation estimators may not work for larger cluster sizes, use traditional
+    # method
     std_dev = round(np.std(clstr_size_arr),2)
     med = round(np.median(clstr_size_arr),2)
 
