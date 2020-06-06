@@ -1,5 +1,13 @@
 """Compute some basic features of MCL results
 
+    Some Vocabulary:
+
+        bijective species cluster: clusters which contain len(species) sequences and which have a sequence from each species
+        
+        excluded species: a species whose exclusion in a particular cluster prevents it from being a bijection.
+            for example, if species = "ANUPADV, AAMBTRI, ALIRTUL" and cluster = "ANUPADV.1001, AAMBTRI.2833",
+            then "ALIRTUL" is the "excluded" species. May want to come up with a less ambiguous term for this...
+    
     Basic Usage Example:
         # produce a graphic with a log-scaled histogram of cluster sizes and various other features
         python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --plot
@@ -13,7 +21,7 @@
         python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --text
         
         # normalize, get bijections, print and plot
-        python mcl.py 06042020.mci.I14.out.dump --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET, AMUSACU, AGLYMAX, ASOLPEN, APRUPER, FLYGJAP, ASOLPEN, ABETVUL, ABRADIS" --text --normalize --print_bijections --plot
+        python mcl.py mcxdumpfile.dump --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET" --text --normalize --print_bijections --plot
 """
 
 import sys
@@ -152,6 +160,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
 
 
 def main():
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('mcl_file', help='file containing MCL results')
     parser.add_argument('--species', help='comma-separated species names, ex: "ANUPADV, AAMBTRI"',)
@@ -186,8 +195,7 @@ def main():
                    .format(min_,med,mean,std_dev,max_,singleton_prop, features_dict['num_clusters']),
                    rotation='horizontal',
                    horizontalalignment='right')
-        plt.xlabel(features_dict['species_frequency'])
-        plt.title('MCL Clusters Features')
+        plt.title('MCL Clusters Features: {}'.format(args.mcl_file))
         plt.hist(clstr_size_arr)
         plt.show()
 
