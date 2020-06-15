@@ -1,9 +1,17 @@
+
 """Compute some basic features of MCL results
+
+    Note:
+        mcl results are assumed to be in the format of an mcxdump dump file
+
+        species names are assumed to comprise the first 7 characters of seq names
 
     Some Vocabulary:
 
         bijective species cluster: clusters which contain len(species) sequences and which have a sequence from each species
         
+        complete cluster: a cluster which contains at least one  sequence for every provided species (args.species)
+
         excluded species: a species whose exclusion in a particular cluster prevents it from being a bijection.
             for example, if species = "ANUPADV, AAMBTRI, ALIRTUL" and cluster = "ANUPADV.1001, AAMBTRI.2833",
             then "ALIRTUL" is the "excluded" species. May want to come up with a less ambiguous term for this...
@@ -21,7 +29,11 @@
         python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --text
         
         # normalize, get bijections, print and plot
-        python mcl.py mcxdumpfile.dump --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET" --text --normalize --print_bijections --plot
+        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET" --text --normalize --print_bijections --plot
+
+        # find clusters which contain all species and create a corresponding MFASTA file
+        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET" --fasta_file data/fasta_sample.fa
+
 """
 
 import sys
@@ -29,7 +41,7 @@ import math
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-
+import fasta
 
 def cluster_features(mcl_output_file, species, normalize=False):
 
@@ -55,6 +67,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
             'species_bijections': a list containing clusters with len(species) sequences with 
                  every species represented--clusters that exhibit a one-to-one mapping between
                  sequences and species
+            'completes': a list containing clusters which contain sequences from all specified species
             'excluded_species_cts': a dictionary containing species keys and how often the species'
                  absence from a cluster was responsible for the cluster's disqualification as a "bijection"
              
@@ -69,11 +82,13 @@ def cluster_features(mcl_output_file, species, normalize=False):
     species_frequency = dict.fromkeys(species, 0)
     excluded_species_cts = dict.fromkeys(species, 0)
     cluster_sizes = []
+    species_bijections = []
     singletons = []
+    completes= []
     num_clusters = 0
     size_distr_dict = {'mean_clstr_size': 0.0, 'min_clstr_size': 1000.0,
                        'max_clstr_size': 0.0}
-    species_bijections = []
+    name_seqdata_dict = {}
     
     with open (mcl_output_file, 'r') as f:
         for line in f:
@@ -91,12 +106,12 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 size = len(cluster)
                 if size == 0:
                     continue
-
+                
                 # this counter may not be needed, but may avoid potentially
                 # expensive calls to len(clusters) in future. Keep for now.
                 num_clusters += 1
                 clusters.append(cluster)
-                
+
                 size_distr_dict['mean_clstr_size'] += size
                 if size_distr_dict['min_clstr_size'] > size:
                     size_distr_dict['min_clstr_size'] = size
@@ -116,7 +131,11 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 set_species = set(species)
                 set_pres = set(present_specs)
                 spec_diff = set_species - set_pres
-                
+
+                # record clusters that contain all species in `completes`
+                if len(spec_diff) == 0:
+                    completes.append(cluster)
+                    
                 # if there are len(species) sequences present and every
                 # species is represented, we define the cluster to be a
                 # "bijection" (a 1-to-1 mapping from species to sequences)
@@ -153,6 +172,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
             'cluster_sizes': cluster_sizes,
             'size_distr_dict': size_distr_dict,
             'singletons': singletons,
+            'completes': completes,
             'num_clusters': num_clusters,
             'species_bijections': species_bijections,
             'excluded_species_cts': excluded_species_cts,
@@ -172,6 +192,7 @@ def main():
                         action='store_true')
     parser.add_argument('--print_bijections', help='print a list of clusters that are one-to-one-mappings',
                         action='store_true')
+    parser.add_argument('--fasta_file', default=None, help='set if user wishes to create mfasta file from mcl dump')
     
     args = parser.parse_args()
     
@@ -207,6 +228,21 @@ def main():
         
     if args.print_bijections:
         print('\nspecies/seqs bijections\n{}'.format(features_dict['species_bijections']))
-    
+
+    # create and MFASTA file from mcl dump file
+    # by default, only take clusters which have
+    # all species represented
+    if args.fasta_file:
+        mfasta = open(args.mcl_file + '.mfasta', 'w')
+        fa_dict = fasta.fasta_dict(args.fasta_file)
+        for i, complete in enumerate(features_dict['completes']):
+            mfasta.write('@cluster' + str(i) + '\n')
+            for seq in complete:
+                mfasta.write('>' + seq + '\n')
+                mfasta.write(fa_dict[seq] + '\n')
+            mfasta.write('@END\n')
+        mfasta.close()
+
+        
 if __name__ == "__main__":
     main()
