@@ -2,17 +2,17 @@
 """Compute some basic features of MCL results
 
     Note:
-        mcl results are assumed to be in the format of an mcxdump dump file
+        -mcl results are assumed to be in the format of an mcxdump dump file
 
-        species names are assumed to comprise the first 7 characters of seq names
+        -species names must be represented with 7 characters (ex: Amborella Trichopoda-->AAMBTRI)
 
     Some Vocabulary:
 
-        bijective species cluster: clusters which contain len(species) sequences and which have a sequence from each species
+        -bijective species cluster: clusters which contain len(species) sequences and which have a sequence from each species
         
-        complete cluster: a cluster which contains at least one  sequence for every provided species (args.species)
+        -complete cluster: a cluster which contains at least one  sequence for every provided species (args.species)
 
-        excluded species: a species whose exclusion in a particular cluster prevents it from being a bijection.
+        -excluded species: a species whose exclusion in a particular cluster prevents it from being a bijection.
             for example, if species = "ANUPADV, AAMBTRI, ALIRTUL" and cluster = "ANUPADV.1001, AAMBTRI.2833",
             then "ALIRTUL" is the "excluded" species. May want to come up with a less ambiguous term for this...
     
@@ -63,6 +63,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
                  max of observed cluster sizes
             'singletons': a list of single-sequence clusters observed
             'num_clusters': total number of clusters observed
+            'num_seqs': number of observed unique sequences
             'clusters': list of lists containing observed clusters
             'species_bijections': a list containing clusters with len(species) sequences with 
                  every species represented--clusters that exhibit a one-to-one mapping between
@@ -86,9 +87,9 @@ def cluster_features(mcl_output_file, species, normalize=False):
     singletons = []
     completes= []
     num_clusters = 0
-    size_distr_dict = {'mean_clstr_size': 0.0, 'min_clstr_size': 1000.0,
+    num_seqs = 0
+    size_distr_dict = {'mean_clstr_size': 0.0, 'min_clstr_size': 100000.0,
                        'max_clstr_size': 0.0}
-    name_seqdata_dict = {}
     
     with open (mcl_output_file, 'r') as f:
         for line in f:
@@ -106,6 +107,9 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 size = len(cluster)
                 if size == 0:
                     continue
+                
+                # this count will assume a seq cannot be present in multiple clusters
+                num_seqs += size
                 
                 # this counter may not be needed, but may avoid potentially
                 # expensive calls to len(clusters) in future. Keep for now.
@@ -174,6 +178,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
             'singletons': singletons,
             'completes': completes,
             'num_clusters': num_clusters,
+            'num_seqs': num_seqs,
             'species_bijections': species_bijections,
             'excluded_species_cts': excluded_species_cts,
             'clusters': clusters}
@@ -195,8 +200,9 @@ def main():
     parser.add_argument('--fasta_file', default=None, help='set if user wishes to create mfasta file from mcl dump')
     
     args = parser.parse_args()
-    
-    features_dict = cluster_features(args.mcl_file, args.species.split(', '),
+
+    species = args.species.split(', ')
+    features_dict = cluster_features(args.mcl_file, species,
                                       normalize=args.normalize)
 
     clstr_size_arr = np.array(features_dict['cluster_sizes'])
@@ -212,12 +218,19 @@ def main():
 
     if args.plot:
         plt.yscale('log')
-        plt.ylabel('min: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\nsingletons: {}\nclusters: {}'
-                   .format(min_,med,mean,std_dev,max_,singleton_prop, features_dict['num_clusters']),
+        ylabel_string = ('min: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\n\
+                             singletons: {}\nclusters: {}\nseqs: {}')\
+                             .format(min_, med, mean, std_dev, max_,
+                                     singleton_prop,
+                                     features_dict['num_clusters'],
+                                     features_dict['num_seqs'])
+        plt.ylabel(ylabel_string,
                    rotation='horizontal',
                    horizontalalignment='right')
+        plt.xlabel('note: "*" has position: (len(species), len(completes)')
+        plt.annotate('*', (len(species), len(features_dict['completes'])))
         plt.title('MCL Clusters Features: {}'.format(args.mcl_file))
-        plt.hist(clstr_size_arr)
+        plt.hist(clstr_size_arr,bins=10)
         plt.show()
 
     if args.text:
