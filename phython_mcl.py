@@ -1,4 +1,4 @@
-"""Compute some basic features of MCL results
+"""Compute features of MCL-generated clusters
 
     Description:
         cluster_features() is responsible for the majority of functionality.
@@ -49,8 +49,8 @@
         # and tags_sample.txt is a text file containing chosen species
         # tags separated on by newlines. See mcl_misc/data/ for examples.
          
-        # generate mcl dumpfile features with cluster_features()
-        python mcl.py data/mcl_sample.out --species data/tags_sample.txt
+        # generate features for mcl dumpfile with cluster_features()
+        python phython_mcl.py data/mcl_sample.out --species data/tags_sample.txt
 
         # add "--plot" to generate a log-scaled histogram of cluster sizes
         # and other features
@@ -75,7 +75,7 @@ import math
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import fasta
+import phython_fasta
 
 
 def cluster_features(mcl_output_file, species, normalize=False):
@@ -165,7 +165,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 # compute species representation features
                 # as of 06/17/2020, species tags can be any
                 # length, but must not contain any delimiters
-                present_specs = [fasta.get_tag(seq) for seq in cluster]
+                present_specs = [phython_fasta.get_tag(seq) for seq in cluster]
                 set_species = set(species)
                 set_pres = set(present_specs)
                 spec_diff = set_species - set_pres

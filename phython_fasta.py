@@ -1,4 +1,4 @@
-"""Some basic functions for FASTA files"""
+"""Some functions for working with FASTA files"""
 
 def get_tag(seq):
     """get species tag from a sequence name
