@@ -1,2 +1,2 @@
-# mcl_misc
-Miscellaneous scripts and modules for analysis of MCL-generated gene sequence clusters
+# PhyThon
+Miscellaneous tools for phylogenetics in Python.
