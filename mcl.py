@@ -1,52 +1,76 @@
 
 """Compute some basic features of MCL results
 
-    Note:
-        -mcl results are assumed to be in the format of an mcxdump dump file
-
-        -species tags must not contain delimiters, e.g., for nufar basil:
-
-                                                   'N|1001' -- yes
-                                                   'A|1001' -- yes
-                                                   'N_1001' -- yes
-                                                   'ANUPADV.1001' -- yes
-                                                   'ANUPADV_1001' -- yes
-                                                   'A_NUPADV.1001' -- no
-                                                   'A.NUPADV.1001' -- no        
-                                                   'AN|UPADV.1001 -- no
-
+    Description:
+        cluster_features() is responsible for the majority of functionality.
+        pertinent features/data from the mcl results located in the dump file
+        generated via mclblastline, mcxdump, etc. are traversed and computed in
+        a single-pass whenever possible and returned as a dictionary.
+         
     Some Vocabulary:
 
-        -bijective species cluster: clusters which contain len(species) sequences and which have a sequence from each species
+        -bijective cluster: clusters which contain len(species)
+             sequences and which have a sequence from each species
         
-        -complete cluster: a cluster which contains at least one  sequence for every provided species (args.species)
+        -complete cluster: a cluster which contains at least one sequence
+             for every provided species (args.species)
 
-        -excluded species: a species whose exclusion in a particular cluster prevents it from being a bijection.
-            for example, if species = "ANUPADV, AAMBTRI, ALIRTUL" and cluster = "ANUPADV.1001, AAMBTRI.2833",
-            then "ALIRTUL" is the "excluded" species. May want to come up with a less ambiguous term for this...
+        -singleton cluster: a cluster containing only one sequence
+
+        -excluded species: a species whose exclusion in a particular cluster
+             prevents it from being a bijection. for example,
+             if species = "ANUPADV, AAMBTRI, ALIRTUL" and cluster = "ANUPADV.1001,
+             AAMBTRI.2833", then "ALIRTUL" is the "excluded" species. May want
+             to come up with less ambiguous term for this...
 
         -tag: the tag name of a species used to format sequence names
             'AAMBTRI' for the sequence of Amborella trichopoda, 'AAMBTRI.1001'
-    
-    Basic Usage Example:
-        # produce a graphic with a log-scaled histogram of cluster sizes and various other features
-        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --plot
-
-        # produce a graphic with a log-scaled histogram of cluster sizes and various other features
-        # normalize flag causes species frequency dict (see cluster_features()) to be normed by the
-        # total number of clusters: "what fraction of clusters contained AAMBTRI?"
-        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --plot --normalize
-       
-        # print some basic cluster features to terminal
-        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, FEQUDIF, ALIRTUL, GPINTAE" --text
         
-        # normalize, get bijections, print and plot
-        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET" --text --normalize --print_bijections --plot
+    Notes:
+        -mcl results are assumed to be in the format of an mcxdump dump file.
+             this file is generated via "mclblastline" and is specified with
+             prefix "dump". (https://micans.org/mcl/man/mclblastline.html)
 
-        # find clusters which contain all species and create a corresponding MFASTA file
-        python mcl.py data/mcl_sample.out --species "AAMBTRI, ANUPADV, ALIRTUL, FEQUDIF, GPINTAE, GCYCMIC, AKADHET" --fasta_file data/fasta_sample.fa
+        -species tags will be interpreted as the string of characters preceding
+             the first delimiter in sequence names. For example, for sequence
+             name "ANUPADV.1001", the species tag will be interpreted as "ANUPADV".
+             supported delimiters are ".", "_", "|". Multiple delimiters can be
+             used in sequence name formats to specify other aspects of seqs, but
+             the first delimiter will mark the end of the species tag. That is,
+                 "AAMB.00061_54" --> AAMB
+                 "ANU|00061.54" --> ANU
+                 "FLYGJAP_0061.64" --> FLYGJAP
 
+        -for more info, see mcl_misc/data and/or the cluster_features()
+             docstring
+
+
+    Basic Usage Example:
+        # in the following examples, mcl_sample.out is an mcl dumpfile
+        # and tags_sample.txt is a text file containing chosen species
+        # tags separated on by newlines. See mcl_misc/data/ for examples.
+         
+        # generate mcl dumpfile features with cluster_features()
+        python mcl.py data/mcl_sample.out --species data/tags_sample.txt
+
+        # add "--plot" to generate a log-scaled histogram of cluster sizes
+        # and other features
+
+        # add "--text" to print mcl result features to terminal
+
+        # add "--print_bijections" to print clusters satisfying
+        # the criteria of a bijection as defined above
+
+        # add "--fasta_file [PATH_TO_FASTA] to generate an MFASTA
+        # file from the results using "complete" clusters.
+
+        # add "--normalize" to normalize several features by 
+        # total number of clusters (e.g., species_freq_dict)
+
+
+        # all of the parameters can be combined for complete output
 """
+
 
 import sys
 import math
@@ -121,7 +145,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
              
     Notes:
         This function should provide all data needed from the mcl file
-            in a single traversal. If more features are of interest, this
+            in a single traversal. If more features are needed, this
             function should be modified to compute them without additional
             traversals (i.e., computed in the main loop) if possible.
     """
@@ -234,7 +258,7 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument('mcl_file', help='file containing MCL results')
-    parser.add_argument('--species', help='comma-separated species names, ex: "ANUPADV, AAMBTRI"',)
+    parser.add_argument('--species', help='file containing species tags')
     parser.add_argument('--plot', help='display histogram of clusters features',
                         action='store_true')
     parser.add_argument('--text', help='print cluster features to terminal',
@@ -243,11 +267,15 @@ def main():
                         action='store_true')
     parser.add_argument('--print_bijections', help='print a list of clusters that are one-to-one-mappings',
                         action='store_true')
-    parser.add_argument('--fasta_file', default=None, help='set if user wishes to create mfasta file from mcl dump')
+    parser.add_argument('--print_completes', help='print clusters that contain all species',
+                        action='store_true')
+    parser.add_argument('--fasta_file', default=None,
+                        help='set if user wishes to create mfasta file from mcl dump')
     
     args = parser.parse_args()
 
-    species = args.species.split(', ')
+    species = [tag.strip() for tag in open(args.species, 'r').readlines()]
+                        
     features_dict = cluster_features(args.mcl_file, species,
                                       normalize=args.normalize)
 
@@ -257,19 +285,21 @@ def main():
     min_ = round(features_dict['size_distr_dict']['min_clstr_size'],2)
     singleton_prop = round(len(features_dict['singletons'])
                            / float(features_dict['num_clusters']),2)
-    # one-pass std devation estimators may not work for larger cluster sizes, use traditional
-    # method
+    
+    # these features can be computed/estimated in a single-pass
+    # should consider adding iterative, incremental steps to 
+    # to cluster_features() loop.
     std_dev = round(np.std(clstr_size_arr),2)
     med = round(np.median(clstr_size_arr),2)
 
     if args.plot:
-
         # SET Y-AXIS SCALE (linear, log, symlog, logit)
         plt.yscale('log')
 
         # SET X-AXIS RANGE
         x_range = 3*len(species) + 1
         plt.xlim(0, x_range)
+        
         ylabel_string = ('FREQ\n\nmin: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\n\
                              singletons: {}\nclusters: {}\nseqs: {}\ncompletes: {}')\
                              .format(min_, med, mean, std_dev, max_,
@@ -280,10 +310,11 @@ def main():
         plt.ylabel(ylabel_string,
                    rotation='horizontal',
                    horizontalalignment='right')
+        
         plt.xlabel('CLUSTER SIZE\n|S| = num species, |C| = num completes')
         
         plt.annotate('*', (len(species), len(features_dict['completes'])),
-                     color='r', weight='bold')        
+                     color='r', weight='bold')
         # coordinate annotation offset set to x_range/100 by default
         plt.annotate('(|S|, |C|)',
                      xy=(len(species), len(features_dict['completes'])),
@@ -294,6 +325,7 @@ def main():
 
         # SET NUMBER OF HISTOGRAM BINS HERE
         num_bins = 3*len(species) + 1
+        
         plt.hist(clstr_size_arr,bins=range(0,num_bins))
         plt.show()
 
@@ -306,9 +338,13 @@ def main():
     if args.print_bijections:
         print('\nspecies/seqs bijections\n{}'.format(features_dict['species_bijections']))
 
-    # create and MFASTA file from mcl dump file
-    # by default, only take clusters which have
-    # all species represented
+    if args.print_completes:
+        print('\ncompletes\n{}'.format(features_dict['completes']))
+        
+    # create an MFASTA file from mcl dump file.
+    # this will create an mfasta containing
+    # only clusters which have all species
+    # represented, i.e., "completes"
     if args.fasta_file:
         mfasta = open(args.mcl_file + '.mfasta', 'w')
         fa_dict = fasta.fasta_dict(args.fasta_file)
