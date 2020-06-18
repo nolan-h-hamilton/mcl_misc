@@ -1,4 +1,3 @@
-
 """Compute some basic features of MCL results
 
     Description:
@@ -71,47 +70,12 @@
         # all of the parameters can be combined for complete output
 """
 
-
 import sys
 import math
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import fasta
-
-
-def get_tag(seq):
-    """get species tag from a sequence name
-
-    Args:
-        seq: sequence name delimited by '.' and/or '_' with species tag in pos 0
-
-    Raises:
-        ValueError: if seq is None or does not contain '.' or '_'
-
-    Returns:
-        The species tag of sequence name `seq`
-
-    Note:
-        this function looks for the *first* delimiter and
-        returns a string of characters preceding it. This
-        method of getting species tags will prevent most
-        bugs caused by non-uniform sequence name formatting
-    """
-
-    pos_first_delim = -1
-    # consider adding 0-9 to `delimiters` so support TAG[0-9]
-    # style formatting of sequence names
-    delimiters = ['|', '_', '.']
-    for i, char in enumerate(seq):
-        if char in delimiters:
-            pos_first_delim = i
-            break
-        
-    if pos_first_delim == -1:
-        raise ValueError('get_tag(): sequence names must be delimited by "." or "_"')
-
-    return seq[0:pos_first_delim]
 
 
 def cluster_features(mcl_output_file, species, normalize=False):
@@ -201,7 +165,7 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 # compute species representation features
                 # as of 06/17/2020, species tags can be any
                 # length, but must not contain any delimiters
-                present_specs = [get_tag(seq) for seq in cluster]
+                present_specs = [fasta.get_tag(seq) for seq in cluster]
                 set_species = set(species)
                 set_pres = set(present_specs)
                 spec_diff = set_species - set_pres
@@ -224,7 +188,6 @@ def cluster_features(mcl_output_file, species, normalize=False):
                 #increment frequency for each present species
                 for spec in set_pres:
                     species_frequency[spec] += 1
-
 
     size_distr_dict['mean_clstr_size'] /= num_clusters
     
@@ -284,7 +247,7 @@ def main():
     max_ = round(features_dict['size_distr_dict']['max_clstr_size'],2)
     min_ = round(features_dict['size_distr_dict']['min_clstr_size'],2)
     singleton_prop = round(len(features_dict['singletons'])
-                           / float(features_dict['num_clusters']),2)
+                           / float(features_dict['num_clusters']),4)
     
     # these features can be computed/estimated in a single-pass
     # should consider adding iterative, incremental steps to 
@@ -293,6 +256,7 @@ def main():
     med = round(np.median(clstr_size_arr),2)
 
     if args.plot:
+        
         # SET Y-AXIS SCALE (linear, log, symlog, logit)
         plt.yscale('log')
 
@@ -330,8 +294,11 @@ def main():
         plt.show()
 
     if args.text:
-        print('\ncluster size features\nmin: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\nsingletons: {}\nclusters: {}'
-                   .format(min_,med,mean,std_dev,max_,singleton_prop, features_dict['num_clusters']))
+        print('\ncluster size features\nmin: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\nsingletons: {}\nclusters: {}\ncompletes: {}'
+                   .format(min_, med, mean, std_dev, max_,
+                           singleton_prop, features_dict['num_clusters'],
+                           len(features_dict['completes'])))
+        
         print('\nspecies frequencies in clusters: {}'.format(features_dict['species_frequency']))
         print('\nexcluded species frequencies: {}'.format(features_dict['excluded_species_cts']))
         
@@ -339,7 +306,10 @@ def main():
         print('\nspecies/seqs bijections\n{}'.format(features_dict['species_bijections']))
 
     if args.print_completes:
-        print('\ncompletes\n{}'.format(features_dict['completes']))
+        for comp_clstr in features_dict['completes']:
+            print(', '.join(comp_clstr) + '\n')
+
+        
         
     # create an MFASTA file from mcl dump file.
     # this will create an mfasta containing

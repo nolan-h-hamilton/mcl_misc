@@ -23,8 +23,8 @@ def species_pwe_dict(abc_file, double_pairs=False, normalize=False):
             # process line text
             line = line.replace('lcl|', '').replace('\n','')
             split_line = line.split('\t')
-            spec1 = split_line[0][0:7]
-            spec2 = split_line[1][0:7]
+            spec1 = get_tag(split_line[0])
+            spec2 = get_tag(split_line[1])
             E = float(split_line[2])
             # make appropriate additions to pwe_dict
             # let's make one entry for each *unordered* pair
