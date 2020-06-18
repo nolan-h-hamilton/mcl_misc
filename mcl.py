@@ -4,7 +4,16 @@
     Note:
         -mcl results are assumed to be in the format of an mcxdump dump file
 
-        -species names must be represented with 7 characters (ex: Amborella Trichopoda-->AAMBTRI)
+        -species tags must not contain delimiters, e.g., for nufar basil:
+
+                                                   'N|1001' -- yes
+                                                   'A|1001' -- yes
+                                                   'N_1001' -- yes
+                                                   'ANUPADV.1001' -- yes
+                                                   'ANUPADV_1001' -- yes
+                                                   'A_NUPADV.1001' -- no
+                                                   'A.NUPADV.1001' -- no        
+                                                   'AN|UPADV.1001 -- no
 
     Some Vocabulary:
 
@@ -15,6 +24,9 @@
         -excluded species: a species whose exclusion in a particular cluster prevents it from being a bijection.
             for example, if species = "ANUPADV, AAMBTRI, ALIRTUL" and cluster = "ANUPADV.1001, AAMBTRI.2833",
             then "ALIRTUL" is the "excluded" species. May want to come up with a less ambiguous term for this...
+
+        -tag: the tag name of a species used to format sequence names
+            'AAMBTRI' for the sequence of Amborella trichopoda, 'AAMBTRI.1001'
     
     Basic Usage Example:
         # produce a graphic with a log-scaled histogram of cluster sizes and various other features
@@ -42,6 +54,41 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import fasta
+
+
+def get_tag(seq):
+    """get species tag from a sequence name
+
+    Args:
+        seq: sequence name delimited by '.' and/or '_' with species tag in pos 0
+
+    Raises:
+        ValueError: if seq is None or does not contain '.' or '_'
+
+    Returns:
+        The species tag of sequence name `seq`
+
+    Note:
+        this function looks for the *first* delimiter and
+        returns a string of characters preceding it. This
+        method of getting species tags will prevent most
+        bugs caused by non-uniform sequence name formatting
+    """
+
+    pos_first_delim = -1
+    # consider adding 0-9 to `delimiters` so support TAG[0-9]
+    # style formatting of sequence names
+    delimiters = ['|', '_', '.']
+    for i, char in enumerate(seq):
+        if char in delimiters:
+            pos_first_delim = i
+            break
+        
+    if pos_first_delim == -1:
+        raise ValueError('get_tag(): sequence names must be delimited by "." or "_"')
+
+    return seq[0:pos_first_delim]
+
 
 def cluster_features(mcl_output_file, species, normalize=False):
 
@@ -128,10 +175,9 @@ def cluster_features(mcl_output_file, species, normalize=False):
                     singletons.append(cluster[0])
 
                 # compute species representation features
-                # note that the species of a sequence is assumed
-                # to be present in the first 7 characters of the
-                # sequence name
-                present_specs = [x[0:7] for x in cluster]
+                # as of 06/17/2020, species tags can be any
+                # length, but must not contain any delimiters
+                present_specs = [get_tag(seq) for seq in cluster]
                 set_species = set(species)
                 set_pres = set(present_specs)
                 spec_diff = set_species - set_pres
@@ -217,20 +263,38 @@ def main():
     med = round(np.median(clstr_size_arr),2)
 
     if args.plot:
+
+        # SET Y-AXIS SCALE (linear, log, symlog, logit)
         plt.yscale('log')
-        ylabel_string = ('min: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\n\
-                             singletons: {}\nclusters: {}\nseqs: {}')\
+
+        # SET X-AXIS RANGE
+        x_range = 3*len(species) + 1
+        plt.xlim(0, x_range)
+        ylabel_string = ('FREQ\n\nmin: {}\nmedian: {}\nmean: {}\nstd: {}\nmax: {}\n\
+                             singletons: {}\nclusters: {}\nseqs: {}\ncompletes: {}')\
                              .format(min_, med, mean, std_dev, max_,
                                      singleton_prop,
                                      features_dict['num_clusters'],
-                                     features_dict['num_seqs'])
+                                     features_dict['num_seqs'],
+                                     len(features_dict['completes']))
         plt.ylabel(ylabel_string,
                    rotation='horizontal',
                    horizontalalignment='right')
-        plt.xlabel('note: "*" has position: (len(species), len(completes)')
-        plt.annotate('*', (len(species), len(features_dict['completes'])))
+        plt.xlabel('CLUSTER SIZE\n|S| = num species, |C| = num completes')
+        
+        plt.annotate('*', (len(species), len(features_dict['completes'])),
+                     color='r', weight='bold')        
+        # coordinate annotation offset set to x_range/100 by default
+        plt.annotate('(|S|, |C|)',
+                     xy=(len(species), len(features_dict['completes'])),
+                     xytext=(len(species)+(x_range/100), len(features_dict['completes'])),
+                     fontsize=8)
+        
         plt.title('MCL Clusters Features: {}'.format(args.mcl_file))
-        plt.hist(clstr_size_arr,bins=10)
+
+        # SET NUMBER OF HISTOGRAM BINS HERE
+        num_bins = 3*len(species) + 1
+        plt.hist(clstr_size_arr,bins=range(0,num_bins))
         plt.show()
 
     if args.text:
@@ -253,7 +317,7 @@ def main():
             for seq in complete:
                 mfasta.write('>' + seq + '\n')
                 mfasta.write(fa_dict[seq] + '\n')
-            mfasta.write('@END\n')
+        mfasta.write('@END\n')
         mfasta.close()
 
         
