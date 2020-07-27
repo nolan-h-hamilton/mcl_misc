@@ -226,6 +226,7 @@ def main():
                         action='store_true')
     parser.add_argument('--text', help='print cluster features to terminal',
                         action='store_true')
+    parser.add_argument('--print_singletons', action='store_true')
     parser.add_argument('--normalize', help='normalize species frequencies',
                         action='store_true')
     parser.add_argument('--print_bijections', help='print a list of clusters that are one-to-one-mappings',
@@ -309,6 +310,12 @@ def main():
         for comp_clstr in features_dict['completes']:
             print(', '.join(comp_clstr) + '\n')
 
+    if args.print_singletons:
+        singleton_dict = dict.fromkeys(species,0)
+        for seq in features_dict['singletons']:
+            singleton_dict[phython_fasta.get_tag(seq)] += 1.0
+            
+        print(singleton_dict)
         
         
     # create an MFASTA file from mcl dump file.
