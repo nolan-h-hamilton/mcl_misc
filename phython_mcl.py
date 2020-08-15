@@ -75,7 +75,7 @@ import math
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import phython_fasta 
+import phython_fasta
 
 
 def cluster_features(mcl_output_file, species, normalize=False):
@@ -233,7 +233,7 @@ def main():
                         action='store_true')
     parser.add_argument('--print_completes', help='print clusters that contain all species',
                         action='store_true')
-    parser.add_argument('--make_mfasta', default=None,
+    parser.add_argument('--fasta_file', default=None,
                         help='set if user wishes to create mfasta file from mcl dump')
     
     args = parser.parse_args()
@@ -322,9 +322,9 @@ def main():
     # this will create an mfasta containing
     # only clusters which have all species
     # represented, i.e., "completes"
-    if args.make_mfasta:
+    if args.fasta_file:
         mfasta = open(args.mcl_file + '.mfasta', 'w')
-        fa_dict = phython_fasta.fasta_dict(args.make_mfasta)
+        fa_dict = phython_fasta.fasta_dict(args.fasta_file)
         for i, complete in enumerate(features_dict['completes']):
             mfasta.write('@cluster' + str(i) + '\n')
             for seq in complete:
